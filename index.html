@@ -1,0 +1,182 @@
+<html lang="en">
+
+<head>
+
+  <link rel="stylesheet" type="text/css" media="screen,print" href="style.css" />
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="theme-color" content="#0dea8d">
+  <meta name="application-name" content="Pendulum Effect">
+  <meta name="description" content="Playing with Threejs and Sine Waves">
+  <meta name="keywords" content="Pendulum Effect, Threejs, Javascript, Ion Drimba Filho, Visualizer">
+  <meta name="subject" content="Playing with Threejs and Sine Waves">
+  <meta name="copyright" content="Ion Drimba Filho">
+
+  <title>Pendulum Effect</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://Threejs.org/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+
+<body>
+
+    <h1> 運動制御 </h1>
+    <p>
+      モータの位置，速度を制御するための方法をまとめました。
+    </p>
+
+    <p>
+      モータの運動方程式は次のように記述できるとします。
+      \[
+        m\ddot{x}(t)=F(x(t),t)+f_{\rm m}(t)
+      \]
+      この微分方程式に従う\(x(t)\), \(\dot{x}(t)\)が所望の応答となるように\(f_{\rm m}(t)\)を生成すれば，実際にそのような運動を発生させられます。
+      この\(f_{\rm m}(t)\)の設計について，物理現象に見られる位置・速度の制御から設計例を類推し，PID制御に帰着することを確認します。
+    </p>
+
+    <h2> 川を流れる物体の速度　</h2>
+    <p>
+      川を流れる物体は，水流との速度差に応じて力を受けます。流速を\(v_{\rm f}\) [m/s]，流体の粘性を\(d\) [N&middot;s/m]とすると，運動方程式は次のようになります。
+      \[
+        \begin{align}
+          m\ddot{x}=d(v_{\rm f}-\dot{x})\\
+          \Leftrightarrow m\dot{v}=d(v_{\rm f}-v)
+        \end{align}
+      \]
+      物体を川に落とした場合，初期速度\(v(0)=0\)と仮定して微分方程式を解くと，次のような状態遷移となることがわかります。
+      \[
+        \begin{align}
+          v(t)=v_{\rm f}(1-e^{-\frac{d}{m}t})
+        \end{align}
+      \]
+      時間が経過するにつれて，物体の速度が川の流速と等しくなることがわかります。
+      また，流体の粘性\(d\)が大きいほど早く速度が同期することがわかります。<br>
+      下のアニメーションでは，流速と粘性を変化させることで物体の速度がどのように変化するかを確認することができます。<br>
+    </p>
+    <div id="render-waterflow" class="canvas-container"></div>
+    <p>
+      このことから，速度制御では速度指令値と速度応答の差に比例する値を力として，物体に入力すれば良いことがわかります。
+      \[
+        \begin{align}
+          f_{\rm m}=K_{\rm p}(v_{\rm f}-v)
+        \end{align}
+      \]
+      これは速度のP制御に相当します。
+    </p>
+    <h2> ばねで繋がれた物体の位置　</h2>
+    <p>
+      ばねで繋がれた物体は，ばねの伸び縮みによって力を受けます。
+      端点の座標を\(x_{\rm w}\)，ばねの剛性，粘性をそれぞれ\(k\) [N/m], \(d\) [N&middot;s/m]とすると，運動方程式は次のようになります。
+      ただし，簡潔な表現のためばねの自然長を式より省略しています。
+      \[
+        \begin{align}
+          m\ddot{x}=d(\dot{x}_{\rm w}-\dot{x})+k(x_{\rm w}-x)\\
+        \end{align}
+      \]
+      このばねによって，端点と物体の相対距離が定常的には一定に保たれます。
+      下のアニメーションでは，剛性と粘性を変化させることで物体がどのように運動するかを確認することができます。
+      剛性が高い場合には位置の収束が早くなりますが，粘性の値によっては振動を発生させます。
+      粘性を剛性に合わせて適切に設計することで高速に収束させることができます。
+      ただし，粘性が大きすぎる場合には収束が遅くなります。
+    </p>
+    <p>誤差: <span id="pendulum-perror"></span> &nbsp;[mm]</p>
+    <div id="render-pendulum" class="canvas-container"></div>
+
+    <p>
+      このことから，位置制御では位置指令値と位置応答の差に比例する値，差の微分値に比例する値の合計値を力として物体に入力すれば良いことがわかります。
+      \[
+        \begin{align}
+          f_{\rm m}=K_{\rm p}(x_{\rm w}-x)+K_{\rm d}(\dot{x}_{\rm w}-\dot{x})
+        \end{align}
+      \]
+      これは位置のPD制御に相当します。
+    </p>
+
+    <h2>I制御について</h2>
+    <p>
+      物体に外乱が作用する場合には，応答値が目標値に到達できないことがあります。
+      ばねで繋がれた物体に，ばね以外の一定力\(f_{\rm d}\)が作用する場合，端点と物体の定常的な相対位置が変化します。
+      \[
+        \begin{align}
+          \Delta x=k^{-1}f_{\rm d}\\
+        \end{align}
+      \]
+      剛性の高いばねを使用した場合=高い位置Pゲインを設定した場合にこの偏差は小さくなりますが，完全に抑圧することはできません。
+      その場合に，誤差の積分値が物体に印加されることで誤差を抑圧することができます。
+      \[
+        \begin{align}
+          m\ddot{x}=d(\dot{x}_{\rm w}-\dot{x})+k(x_{\rm w}-x)+K_{\rm i}\int(x_{\rm w}-x)dt+f_{\rm d} \\
+        \end{align}
+      \]
+      これは位置のPID制御に相当します。
+      このI制御を導入することで微分方程式が複雑化し，パラメータ決定が難しくなります。
+    </p>
+    <ul>
+      <li> P制御を高くすると早く収束します。 </li>
+      <li> D制御を高くすると振動が抑制されます。高すぎると応答が遅くなります。 </li>
+      <li> I制御を入れると定常偏差が抑圧されます。高すぎると過渡応答時に発振を始めます。 </li>
+    </ul>
+    <p> 適切なPIDゲインは微分方程式を解いたら出ます。ラプラス変換を使うと求解が簡単になります。</p>
+</body>
+
+
+<script id="vs" type="x-shader/x-vertex">
+  attribute vec3 position;
+  void main(){
+    gl_Position = vec4(position, 1.0);
+    gl_PointSize = 2.0;
+  }
+</script>
+<script id="fs" type="x-shader/x-fragment">
+  precision highp float;
+  void main(){
+    gl_FragColor = vec4(0.20, 1.0, 1.0, 1.0);
+  }
+</script>
+
+<script type="text/javascript" src="./graph/webgllib.js"></script>
+<script type="text/javascript" src="./graph/webgl_graph.js"></script>
+
+<script type="text/javascript" src="./animation/pool.js"></script>
+<script type="text/javascript" src="./animation/pendulum.js"></script>
+
+
+
+
+<script>
+
+  const animation_waterball=new THREE_waterflow("render-waterflow", "waterball");
+  animation_waterball.init();
+
+  const graph_waterball=new webglGraph("render-waterflow", "waterball");
+  const plotGain_waterball=0.3;
+  graph_waterball.init();
+
+  const animation_pendulum=new THREE_pendulum_mdk("render-pendulum", "pendulum");
+  animation_pendulum.init();
+
+  const graph_pendulum=new webglGraph("render-pendulum", "pendulum");
+  const plotGain_pendulum=0.04;
+  graph_pendulum.init();
+
+  window.onload = function(){
+    setInterval(function(){
+      graph_waterball.draw(animation_waterball.flow.velocity*plotGain_waterball-0.5, animation_waterball.waterball.state.velocity*plotGain_waterball-0.5);
+      graph_pendulum.draw(animation_pendulum.spring.handlingPoint*plotGain_pendulum, animation_pendulum.ball.state.position.z*plotGain_pendulum);
+    }, 10);
+
+    setInterval(function(){
+      document.getElementById("pendulum-perror").innerHTML=((animation_pendulum.spring.handlingPoint-animation_pendulum.ball.state.position.z)*1e3).toFixed(3);
+    }, 60);
+
+
+  }
+
+</script>
+
+
+</html>

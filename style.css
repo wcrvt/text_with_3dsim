@@ -1,0 +1,65 @@
+html {
+  font-family: sans-serif;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.canvas-container{
+  position:relative;
+  text-align:center;
+  margin:auto;
+  width:90%;
+}
+
+.dg.main{
+  position: absolute;
+  top:0px;
+  right:0px;
+  z-index: 99 !important;
+}
+
+#graph-pendulum{
+  width:100%;
+  height:200px;
+}
+#graph-waterball{
+  width:100%;
+  height:200px;
+}
+
+#animation-pendulum{
+  background-color: #ccf;
+}
+#stats-pendulum{
+  opacity: 1;
+  position: absolute;
+  top:0px;
+  left:0px;
+  z-index: 99 !important;
+}
+
+#animation-waterball{
+  background-color: #ccf;
+  width:100%;
+}
+#stats-waterball{
+  opacity: 1;
+  position: absolute;
+  top:0px;
+  left:0px;
+  z-index: 99 !important;
+}
+
+#animation-pendulum{
+  background-color: #ccf;
+}
